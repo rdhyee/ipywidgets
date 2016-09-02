@@ -20,7 +20,7 @@ except ImportError:
 from IPython.core.getipython import get_ipython
 from . import (Widget, Text,
     FloatSlider, IntSlider, Checkbox, Dropdown,
-    Box, Button, DOMWidget)
+    Box, Button, DOMWidget, Output)
 from IPython.display import display, clear_output
 from ipython_genutils.py3compat import string_types, unicode_type
 from traitlets import HasTraits, Any, Unicode, observe
@@ -86,24 +86,9 @@ def _widget_abbrev_single_value(o):
 def _widget_abbrev(o):
     """Make widgets from abbreviations: single values, lists or tuples."""
     if isinstance(o, list):
-        # --------------------------------------------------------------------
-        # Handle deprecated behavior of using lists of length 2 or 3 in place
-        # of tuples to specify slider widget attributes. This will be removed
-        # in ipywidgets 6.0.
-        if len(o) in [2, 3] and all(isinstance(x, Real) for x in o):
-            warn("For Sliders, use a tuple: %s" % (tuple(o),), DeprecationWarning)
-            return _widget_abbrev(tuple(o))
-        # --------------------------------------------------------------------
         return Dropdown(options=[unicode_type(k) for k in o])
 
     elif isinstance(o, tuple):
-        # --------------------------------------------------------------------
-        # Handle deprecated behavior of using tuples for selection widget. This
-        # will be removed in ipywidgets 6.0.
-        if any(not isinstance(x, Real) for x in o):
-            warn("For Selection widgets, use a list %s" %(list(o),), DeprecationWarning)
-            return Dropdown(options=[unicode_type(k) for k in o])
-        # --------------------------------------------------------------------
         if _matches(o, (Real, Real)):
             min, max, value = _get_min_max_value(o[0], o[1])
             if all(isinstance(_, Integral) for _ in o):
@@ -183,7 +168,7 @@ def _find_abbreviations(f, kwargs):
     return new_kwargs
 
 def _widgets_from_abbreviations(seq):
-    """Given a sequence of (name, abbrev) tuples, return a sequence of Widgets."""
+    """Given a sequence of (name, abbrev, default) tuples, return a sequence of Widgets."""
     result = []
     for name, abbrev, default in seq:
         widget = _widget_from_abbrev(abbrev, default)
@@ -244,23 +229,26 @@ def interactive(__interact_f, **kwargs):
     if manual:
         manual_button = Button(description="Run %s" % f.__name__)
         c.append(manual_button)
+    out = Output()
+    c.append(out)
     container.children = c
 
     # Build the callback
-    def call_f(change):
-        name, old, new = change['name'], change['old'], change['new']
+    def call_f(*args):
+
         container.kwargs = {}
         for widget in kwargs_widgets:
             value = widget.value
             container.kwargs[widget._kwarg] = value
-        if co:
-            clear_output(wait=True)
         if manual:
             manual_button.disabled = True
         try:
-            container.result = f(**container.kwargs)
-            if container.result is not None:
-                display(container.result)
+            with out:
+                if co:
+                    clear_output(wait=True)
+                container.result = f(**container.kwargs)
+                if container.result is not None:
+                    display(container.result)
         except Exception as e:
             ip = get_ipython()
             if ip is None:

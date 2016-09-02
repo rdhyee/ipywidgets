@@ -5,127 +5,109 @@ Represents an enumeration using a widget.
 
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-
-from collections import OrderedDict
-from threading import Lock
+from collections import Mapping
 
 from .domwidget import DOMWidget
 from .widget import register
-from traitlets import (
-    Unicode, Bool, Any, Dict, TraitError, CaselessStrEnum, Tuple, List
-)
+from traitlets import (Unicode, Bool, Any, Dict, TraitError, CaselessStrEnum,
+                       Tuple, List, Union, observe, validate)
 from ipython_genutils.py3compat import unicode_type
+
+def _value_to_label(value, obj):
+    options = obj._make_options(obj.options)
+    return next((k for k, v in options if obj.equals(v, value)), '')
+
+def _label_to_value(k, obj):
+    return obj._options_dict[k]
 
 
 class _Selection(DOMWidget):
     """Base class for Selection widgets
 
     ``options`` can be specified as a list or dict. If given as a list,
-    it will be transformed to a dict of the form ``{str(value):value}``.
+    it will be transformed to a dict of the form ``{unicode_type(value): value}``.
 
     When programmatically setting the value, a reverse lookup is performed
-    among the options to set the value of ``selected_label`` accordingly. The
-    reverse lookup uses the equality operator by default, but an other
-    predicate may be provided via the ``equals`` argument. For example, when
-    dealing with numpy arrays, one may set equals=np.array_equal.
+    among the options to check that the value is valid. The reverse lookup uses
+    the equality operator by default, but another predicate may be provided via
+    the ``equals`` keyword argument. For example, when dealing with numpy arrays,
+    one may set equals=np.array_equal.
     """
 
-    value = Any(help="Selected value")
-    selected_label = Unicode(help="The label of the selected value").tag(sync=True)
-    options = Any(help="""List of (key, value) tuples or dict of values that the
-        user can select.
+    value = Any(help="Selected value").tag(sync=True,
+                                           to_json=_value_to_label,
+                                           from_json=_label_to_value)
+
+    options = Union([List(), Dict()],
+    help="""List of (key, value) tuples or dict of values that the user can select.
 
     The keys of this list are the strings that will be displayed in the UI,
     representing the actual Python choices.
 
     The keys of this list are also available as _options_labels.
     """)
+    _options_dict = Dict(read_only=True)
+    _options_labels = Tuple(read_only=True).tag(sync=True)
+    _options_values = Tuple(read_only=True)
 
-    _options_dict = Dict()
-    _options_labels = Tuple().tag(sync=True)
-    _options_values = Tuple()
+    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
+    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
 
-    disabled = Bool(False, help="Enable or disable user changes").tag(sync=True)
+    disabled = Bool(help="Enable or disable user changes").tag(sync=True)
     description = Unicode(help="Description of the value this widget represents").tag(sync=True)
 
     def __init__(self, *args, **kwargs):
-        self.value_lock = Lock()
-        self.options_lock = Lock()
         self.equals = kwargs.pop('equals', lambda x, y: x == y)
-        self.on_trait_change(self._options_readonly_changed, ['_options_dict', '_options_labels', '_options_values', '_options'])
-        if 'options' in kwargs:
-            self.options = kwargs.pop('options')
-        DOMWidget.__init__(self, *args, **kwargs)
-        self._value_in_options()
+        super(_Selection, self).__init__(*args, **kwargs)
 
     def _make_options(self, x):
+        # Return a list of key-value pairs where the keys are strings
         # If x is a dict, convert it to list format.
-        if isinstance(x, (OrderedDict, dict)):
-            return [(k, v) for k, v in x.items()]
-
-        # Make sure x is a list or tuple.
-        if not isinstance(x, (list, tuple)):
-            raise ValueError('x')
+        if isinstance(x, Mapping):
+            return [(unicode_type(k), v) for k, v in x.items()]
 
         # If x is an ordinary list, use the option values as names.
         for y in x:
             if not isinstance(y, (list, tuple)) or len(y) < 2:
-                return [(i, i) for i in x]
+                return [(unicode_type(i), i) for i in x]
 
         # Value is already in the correct format.
         return x
 
-    def _options_changed(self, name, old, new):
+    @validate('options')
+    def _validate_options(self, proposal):
         """Handles when the options tuple has been changed.
 
         Setting options implies setting option labels from the keys of the dict.
         """
-        if self.options_lock.acquire(False):
-            try:
-                self.options = new
+        new = proposal['value']
+        options = self._make_options(new)
+        self.set_trait('_options_dict', { i[0]: i[1] for i in options })
+        self.set_trait('_options_labels', [ i[0] for i in options ])
+        self.set_trait('_options_values', [ i[1] for i in options ])
+        return new
 
-                options = self._make_options(new)
-                self._options_dict = {i[0]: i[1] for i in options}
-                self._options_labels = [i[0] for i in options]
-                self._options_values = [i[1] for i in options]
-                self._value_in_options()
-            finally:
-                self.options_lock.release()
-
-    def _value_in_options(self):
+    @observe('options')
+    def _value_in_options(self, change):
         # ensure that the chosen value is one of the choices
-
         if self._options_values:
             if self.value not in self._options_values:
                 self.value = next(iter(self._options_values))
 
-    def _options_readonly_changed(self, name, old, new):
-        if not self.options_lock.locked():
-            raise TraitError("`.%s` is a read-only trait. Use the `.options` tuple instead." % name)
+    @validate('value')
+    def _validate_value(self, proposal):
+        value = proposal['value']
+        if _value_to_label(value, self):
+            return value
+        else:
+            raise TraitError('Invalid selection')
 
-    def _value_changed(self, name, old, new):
-        """Called when value has been changed"""
-        if self.value_lock.acquire(False):
-            try:
-                # Reverse dictionary lookup for the value name
-                for k, v in self._options_dict.items():
-                    if self.equals(new, v):
-                        # set the selected value name
-                        self.selected_label = k
-                        return
-                # undo the change, and raise KeyError
-                self.value = old
-                raise KeyError(new)
-            finally:
-                self.value_lock.release()
 
-    def _selected_label_changed(self, name, old, new):
-        """Called when the value name has been changed (typically by the frontend)."""
-        if self.value_lock.acquire(False):
-            try:
-                self.value = self._options_dict[new]
-            finally:
-                self.value_lock.release()
+def _values_to_labels(values, obj):
+    return tuple(_value_to_label(v, obj) for v in values)
+
+def _labels_to_values(k, obj):
+    return tuple(_label_to_value(l, obj) for l in k)
 
 
 class _MultipleSelection(_Selection):
@@ -133,55 +115,30 @@ class _MultipleSelection(_Selection):
 
     As with ``_Selection``, ``options`` can be specified as a list or dict. If
     given as a list, it will be transformed to a dict of the form
-    ``{str(value): value}``.
+    ``{unicode_type(value): value}``.
 
-    Despite their names, ``value`` (and ``selected_label``) will be tuples, even
-    if only a single option is selected.
+    Despite its name, the ``value`` attribute is a tuple, even if only a single
+    option is selected.
     """
 
-    value = Tuple(help="Selected values")
-    selected_labels = Tuple(help="The labels of the selected options").tag(sync=True)
+    value = Tuple(help="Selected values").tag(sync=True,
+                  to_json=_values_to_labels, from_json=_labels_to_values)
 
-    @property
-    def selected_label(self):
-        raise AttributeError(
-            "Does not support selected_label, use selected_labels")
+    @observe('options')
+    def _value_in_options(self, change):
+        new_value = []
+        for v in self.value:
+            if v in self._options_dict.values():
+                new_value.append(v)
+        self.value = new_value
 
-    def _value_in_options(self):
-        # ensure that the chosen value is one of the choices
-        if self.options:
-            old_value = self.value or []
-            new_value = []
-            for value in old_value:
-                if value in self._options_dict.values():
-                    new_value.append(value)
-            if new_value:
-                self.value = new_value
-            else:
-                self.value = [next(iter(self._options_dict.values()))]
-
-    def _value_changed(self, name, old, new):
-        """Called when value has been changed"""
-        if self.value_lock.acquire(False):
-            try:
-                self.selected_labels = [
-                    self._options_labels[self._options_values.index(v)]
-                    for v in new
-                ]
-            except:
-                self.value = old
-                raise KeyError(new)
-            finally:
-                self.value_lock.release()
-
-    def _selected_labels_changed(self, name, old, new):
-        """Called when the selected label has been changed (typically by the
-        frontend)."""
-        if self.value_lock.acquire(False):
-            try:
-                self.value = [self._options_dict[name] for name in new]
-            finally:
-                self.value_lock.release()
+    @validate('value')
+    def _validate_value(self, proposal):
+        value = proposal['value']
+        if all(_value_to_label(v, self) for v in value):
+            return value
+        else:
+            raise TraitError('Invalid selection')
 
 
 @register('Jupyter.ToggleButtons')
@@ -221,7 +178,7 @@ class RadioButtons(_Selection):
     Only one radio button can be toggled at any point in time.
     """
     _view_name = Unicode('RadioButtonsView').tag(sync=True)
-    _modelname = Unicode('RadioButtonsModel').tag(sync=True)
+    _model_name = Unicode('RadioButtonsModel').tag(sync=True)
 
 
 @register('Jupyter.Select')
@@ -234,15 +191,16 @@ class Select(_Selection):
 @register('Jupyter.SelectionSlider')
 class SelectionSlider(_Selection):
     """Slider to select a single item from a list or dictionary."""
-    _view_name = Unicode('SelectionSliderView', sync=True)
-    _modelname = Unicode('SelectionSliderModel', sync=True)
+    _view_name = Unicode('SelectionSliderView').tag(sync=True)
+    _model_name = Unicode('SelectionSliderModel').tag(sync=True)
 
     orientation = CaselessStrEnum(
-        values=['horizontal', 'vertical'],
-        default_value='horizontal', allow_none=False, sync=True,
-        help="""Vertical or horizontal.""")
-    readout = Bool(True, sync=True,
-        help="""Display the current selected label next to the slider""")
+        values=['horizontal', 'vertical'], default_value='horizontal',
+        allow_none=False, help="Vertical or horizontal.").tag(sync=True)
+    readout = Bool(True,
+        help="Display the current selected label next to the slider").tag(sync=True)
+    continuous_update = Bool(True,
+        help="Update the value of the widget as the user is holding the slider.").tag(sync=True)
 
 
 @register('Jupyter.SelectMultiple')

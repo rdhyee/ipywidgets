@@ -15,6 +15,8 @@ from warnings import warn
 @register('Jupyter.Box')
 class Box(DOMWidget):
     """Displays multiple widgets in a group."""
+    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
+    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
     _model_name = Unicode('BoxModel').tag(sync=True)
     _view_name = Unicode('BoxView').tag(sync=True)
 
@@ -48,8 +50,10 @@ class Box(DOMWidget):
 
 
 @register('Jupyter.Proxy')
-class Proxy(Widget):
+class Proxy(DOMWidget):
     """A DOMWidget that holds another DOMWidget or nothing."""
+    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
+    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
     _model_name = Unicode('ProxyModel').tag(sync=True)
     _view_name = Unicode('ProxyView').tag(sync=True)
 
@@ -79,6 +83,7 @@ def VBox(*pargs, **kwargs):
     box = Box(*pargs, **kwargs)
     box.layout.display = 'flex'
     box.layout.flex_flow = 'column'
+    box.layout.align_items = 'stretch'
     return box
 
 
@@ -86,26 +91,5 @@ def HBox(*pargs, **kwargs):
     """Displays multiple widgets horizontally using the flexible box model."""
     box = Box(*pargs, **kwargs)
     box.layout.display = 'flex'
+    box.layout.align_items = 'stretch'
     return box
-
-
-@register('Jupyter.FlexBox')
-class FlexBox(Box): # TODO: Deprecated in 5.0 (entire class)
-    """Displays multiple widgets using the flexible box model."""
-    _view_name = Unicode('FlexBoxView').tag(sync=True)
-    _model_name = Unicode('FlexBoxModel').tag(sync=True)
-    orientation = CaselessStrEnum(values=['vertical', 'horizontal'], default_value='vertical').tag(sync=True)
-    flex = Int(help="""Specify the flexible-ness of the model.""").tag(sync=True)
-    def _flex_changed(self, name, old, new):
-        new = min(max(0, new), 2)
-        if self.flex != new:
-            self.flex = new
-
-    _locations = ['start', 'center', 'end', 'baseline', 'stretch']
-    pack = CaselessStrEnum(values=_locations, default_value='start').tag(sync=True)
-    align = CaselessStrEnum(values=_locations, default_value='start').tag( sync=True)
-
-    def __init__(self, *pargs, **kwargs):
-        warn('FlexBox is deprecated in ipywidgets 5.0.  Use Box and Box.layout instead.', DeprecationWarning)
-        super(FlexBox, self).__init__(*pargs, **kwargs)
-

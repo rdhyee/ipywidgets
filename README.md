@@ -1,64 +1,113 @@
-# Interactive HTML Widgets
+# ipywidgets: Interactive HTML Widgets
 
-[![Google Group](https://img.shields.io/badge/-Google%20Group-lightgrey.svg)](https://groups.google.com/forum/#!forum/jupyter)
+[![Version](https://img.shields.io/pypi/v/ipywidgets.svg)](https://pypi.python.org/pypi/ipywidgets)
+[![Downloads](https://img.shields.io/pypi/dm/ipywidgets.svg)](https://pypi.python.org/pypi/ipywidgets)
 [![Build Status](https://travis-ci.org/ipython/ipywidgets.svg?branch=master)](https://travis-ci.org/ipython/ipywidgets)
-[![Documentation Status](https://readthedocs.org/projects/ipywidgets/badge/?version=latest)](http://ipywidgets.readthedocs.org/en/latest/?badge=latest)
+[![Documentation Status](http://readthedocs.org/projects/ipywidgets/badge/?version=latest)](http://ipywidgets.readthedocs.io/en/latest/?badge=latest)
 [![Join the chat at https://gitter.im/ipython/ipywidgets](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ipython/ipywidgets?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[Interactive HTML widgets](https://github.com/ipython/ipywidgets/blob/master/examples/notebooks/Index.ipynb)
+ipywidgets are [interactive HTML widgets](https://github.com/ipython/ipywidgets/blob/master/docs/source/examples/Index.ipynb)
 for Jupyter notebooks and the IPython kernel.
 
-A [demonstration notebook](https://github.com/ipython/ipywidgets/blob/master/examples/notebooks/Index.ipynb) provides an overview of the interactive widgets. For detailed information, please refer to the [ipywidgets documentation](http://ipywidgets.readthedocs.org/en/latest/).
+Notebooks come alive when interactive widgets are used. Users gain control of
+their data and can visualize changes in the data.
+
+Learning becomes an immersive, plus fun, experience. Researchers can easily see
+how changing inputs to a model impact the results. We hope you will add
+ipywidgets to your notebooks, and we're here to help you get started.
+
+## Core Interactive Widgets
+
+A [demonstration notebook](https://github.com/ipython/ipywidgets/blob/master/docs/source/examples/Index.ipynb) provides an overview of the core interactive widgets, including:
+
+- sliders
+- progress bars
+- text boxes
+- toggle buttons and checkboxes
+- display areas
+- and more
+
+## Jupyter Interactive Widgets as a Framework
+
+Besides the widgets already provided with the library, the framework can be
+extended with custom widget libraries.
+
+A template project is available in the form of a cookie cutter [here](https://github.com/jupyter/widget-cookiecutter).
+
+This project is meant to help custom widget authors get started with the
+packaging and the distribution of Jupyter interactive widgets.
+
+It produces a project for a Jupyter interactive widget library following the
+current best practices for using interactive widgets. An implementation for a
+placeholder "Hello World" widget is provided.
+
+Popular widget libraries such as
+[bqplot](https://github.com/bloomberg/bqplot),
+[pythreejs](https://github.com/jovyan/pythreejs) and
+[ipyleaflet](https://github.com/ellisonbg/ipyleaflet)
+
+follow exactly the same template and directory structure. They can serve as
+more advanced examples of usage of the Jupyter widget infrastructure.
+
+For detailed information, please refer to the [ipywidgets documentation](http://ipywidgets.readthedocs.org/en/latest/).
+
+## More advanced examples
+
+Examples of custom widget libraries built upon ipywidgets are
+
+- [bqplot](https://github.com/bloomberg/bqplot) a 2d data visualization library
+  enabling custom user interactions.
+- [pythreejs](https://github.com/jovyan/pythreejs) a Jupyter - Three.js wrapper,
+  bringing Three.js to the notebook.
+- [ipyleaflet](https://github.com/ellisonbg/ipyleaflet) a leaflet widget for Jupyter.
 
 ## Install
 
-Install the current version of ipywidgets using pip or conda:
+Install the current version of ipywidgets using pip or conda.
 
-    pip install ipywidgets
+- With pip:
 
-or
+```
+pip install ipywidgets
+jupyter nbextension enable --py --sys-prefix widgetsnbextension
+```
 
-    conda install ipywidgets
+- With conda:
 
+```
+conda install -c conda-forge ipywidgets
+```
 
-### Development install
+See the [Installation](docs/source/user_install.md) section of the documentation for additional details.
 
-To install ipywidgets from git, you will need [npm](https://www.npmjs.com/).
+### Installing from git
 
-0. clone the repo:
+If you want to install ipywidgets from git, **you will need [npm](https://www.npmjs.com/) version 3.x or later** (check you version by running `npm -v` from a terminal).  Installing from git is more complicated and requires a developer install, see the [developer install](docs/source/dev_install.md) instructions.
 
-        git clone https://github.com/ipython/ipywidgets
-        cd ipywidgets
+To install the latest master version from the root directory of the source
+code, run ``dev-install.sh``. To only build the Python package enter ``pip install -e .``.
 
-1. Dev-install of the package (run from repo directory):
+#### Compatibility
 
-        pip install -v -e .
+| ipywidgets version  | Required notebook version |
+| ------------------- | ------------------------- |
+| master              | 4.2                       |
+| 5.x                 | 4.2                       |
+| 4.1.x               | 4.1                       |
+| 4.0.x               | 4.0                       |
 
-    Note: You need to have npm installed.  The installation process will
-    complain if you don't.  If you install using sudo, you need to make sure
-    that npm is also available in the PATH used with sudo.
+[Change log](docs/source/changelog.md)
 
+## Usage
+See the [examples](docs/source/examples.md) section of the documentation. The widgets are being used in a variety of ways; some uses can be seen in these notebooks:
 
-## Test
+- [Demo notebook of interactive widgets](https://github.com/ipython/ipywidgets/blob/master/docs/source/examples/Index.ipynb)
 
-To run the Python tests:
+## Contributing to ipywidgets
+- [Developer install](docs/source/dev_install.md)
 
-    nosetests --with-coverage --cover-package=ipywidgets ipywidgets
-
-To run the Javascript tests:
-
-    npm run test
-
-This will run the test suite using `karma` with 'debug' level logging.
-
-## Resources
-### ipywidgets
-- [Demo notebook of interactive widgets](https://github.com/ipython/ipywidgets/blob/master/examples/notebooks/Index.ipynb)
-- [Documentation for ipywidgets](http://ipywidgets.readthedocs.org/en/latest/) [[PDF](https://media.readthedocs.org/pdf/ipywidgets/latest/ipywidgets.pdf)]
-- [Issues](https://github.com/ipython/ipywidgets/issues)
-- [Technical support - Jupyter Google Group](https://groups.google.com/forum/#!forum/jupyter)
-
-### Project Jupyter
+### Project Jupyter resources
 - [Project Jupyter website](https://jupyter.org)
 - [Online Demo of Jupyter Notebook at try.jupyter.org](https://try.jupyter.org)
 - [Documentation for Project Jupyter](http://jupyter.readthedocs.org/en/latest/index.html) [[PDF](https://media.readthedocs.org/pdf/jupyter/latest/jupyter.pdf)]
+- [![Google Group](https://img.shields.io/badge/-Google%20Group-lightgrey.svg)](https://groups.google.com/forum/#!forum/jupyter)

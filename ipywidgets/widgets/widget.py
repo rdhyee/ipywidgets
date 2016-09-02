@@ -14,8 +14,11 @@ from IPython.core.getipython import get_ipython
 from ipykernel.comm import Comm
 from traitlets.config import LoggingConfigurable
 from traitlets.utils.importstring import import_item
-from traitlets import Unicode, Dict, Instance, List, Int, Set, Bytes
+from traitlets import Unicode, Dict, Instance, List, Int, Set, Bytes, observe
 from ipython_genutils.py3compat import string_types, PY3
+from IPython.display import display
+
+from .._version import __frontend_version__
 
 
 def _widget_to_json(x, obj):
@@ -148,17 +151,17 @@ class Widget(LoggingConfigurable):
     #-------------------------------------------------------------------------
     # Traits
     #-------------------------------------------------------------------------
-    _model_module = Unicode(None, allow_none=True, help="""A requirejs module name
+    _model_module = Unicode('jupyter-js-widgets', help="""A requirejs module name
         in which to find _model_name. If empty, look in the global registry.""").tag(sync=True)
     _model_name = Unicode('WidgetModel', help="""Name of the backbone model
         registered in the front-end to create and sync this widget with.""").tag(sync=True)
-    _view_module = Unicode(help="""A requirejs module in which to find _view_name.
+    _view_module = Unicode(None, allow_none=True, help="""A requirejs module in which to find _view_name.
         If empty, look in the global registry.""").tag(sync=True)
     _view_name = Unicode(None, allow_none=True, help="""Default view registered in the front-end
         to use to represent the widget.""").tag(sync=True)
     comm = Instance('ipykernel.comm.Comm', allow_none=True)
 
-    msg_throttle = Int(3, help="""Maximum number of msgs the front-end can send before receiving an idle msg from the back-end.""").tag(sync=True)
+    msg_throttle = Int(1, help="""Maximum number of msgs the front-end can send before receiving an idle msg from the back-end.""").tag(sync=True)
 
     keys = List()
     def _keys_default(self):
@@ -204,9 +207,10 @@ class Widget(LoggingConfigurable):
                 # send state with binary elements as second message
                 self.send_state()
 
-    def _comm_changed(self, name, new):
+    @observe('comm')
+    def _comm_changed(self, change):
         """Called when the comm is changed."""
-        if new is None:
+        if change['new'] is None:
             return
         self._model_id = self.model_id
 
@@ -234,6 +238,7 @@ class Widget(LoggingConfigurable):
             Widget.widgets.pop(self.model_id, None)
             self.comm.close()
             self.comm = None
+            self._ipython_display_ = None
 
     def _split_state_buffers(self, state):
         """Return (state_without_buffers, buffer_keys, buffers) for binary message parts"""
@@ -467,11 +472,28 @@ class Widget(LoggingConfigurable):
             # Before the user tries to display a widget.  Validate that the
             # widget front-end is what is expected.
             if validated is None:
-                loud_error('Widget Javascript not detected.  It may not be installed properly.')
+                loud_error('Widget Javascript not detected.  It may not be '
+                           'installed properly. Did you enable the '
+                           'widgetsnbextension? If not, then run "jupyter '
+                           'nbextension enable --py --sys-prefix '
+                           'widgetsnbextension"')
             elif not validated:
                 loud_error('The installed widget Javascript is the wrong version.')
 
+            # TODO: delete this sending of a comm message when the display statement
+            # below works. Then add a 'text/plain' mimetype to the dictionary below.
             self._send({"method": "display"})
+
+            # The 'application/vnd.jupyter.widget' mimetype has not been registered yet.
+            # See the registration process and naming convention at
+            # http://tools.ietf.org/html/rfc6838
+            # and the currently registered mimetypes at
+            # http://www.iana.org/assignments/media-types/media-types.xhtml.
+            # We don't have a 'text/plain' entry so that the display message will be
+            # will be invisible in the current notebook.
+            data = {'application/vnd.jupyter.widget': self._model_id}
+            display(data, raw=True)
+
             self._handle_displayed(**kwargs)
 
     def _send(self, msg, buffers=None):
@@ -486,4 +508,4 @@ def handle_version_comm_opened(comm, msg):
     def handle_version_message(msg):
         Widget._version_validated = msg['content']['data']['validated']
     comm.on_msg(handle_version_message)
-    comm.send({'version': '4.1.0dev'})
+    comm.send({'version': __frontend_version__})

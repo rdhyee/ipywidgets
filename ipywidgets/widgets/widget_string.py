@@ -9,10 +9,15 @@ Represents a unicode string using a widget.
 from .domwidget import DOMWidget
 from .widget import CallbackDispatcher, register
 from traitlets import Unicode, Bool
+from warnings import warn
 
 
 class _String(DOMWidget):
     """Base class used to create widgets that represent a string."""
+
+    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
+    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
+
     value = Unicode(help="String value").tag(sync=True)
     disabled = Bool(False, help="Enable or disable user changes").tag(sync=True)
     description = Unicode(help="Description of the value this widget represents").tag(sync=True)
@@ -33,15 +38,15 @@ class HTML(_String):
     _model_name = Unicode('HTMLModel').tag(sync=True)
 
 
-@register('Jupyter.Latex')
-class Latex(_String):
+@register('Jupyter.Label')
+class Label(_String):
     """Label widget.
 
     It also renders math inside the string `value` as Latex (requires $ $ or
     $$ $$ and similar latex tags).
     """
-    _view_name = Unicode('LatexView').tag(sync=True)
-    _model_name = Unicode('LatexModel').tag(sync=True)
+    _view_name = Unicode('LabelView').tag(sync=True)
+    _model_name = Unicode('LabelModel').tag(sync=True)
 
 
 @register('Jupyter.Textarea')

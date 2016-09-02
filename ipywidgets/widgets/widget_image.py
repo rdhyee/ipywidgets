@@ -10,7 +10,7 @@ import base64
 
 from .domwidget import DOMWidget
 from .widget import register
-from traitlets import Unicode, CUnicode, Bytes
+from traitlets import Unicode, CUnicode, Bytes, observe
 
 
 @register('Jupyter.Image')
@@ -24,6 +24,8 @@ class Image(DOMWidget):
     """
     _view_name = Unicode('ImageView').tag(sync=True)
     _model_name = Unicode('ImageModel').tag(sync=True)
+    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
+    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
 
     # Define the custom state properties to sync with the front-end
     format = Unicode('png').tag(sync=True)
@@ -32,5 +34,7 @@ class Image(DOMWidget):
     _b64value = Unicode().tag(sync=True)
 
     value = Bytes()
-    def _value_changed(self, name, old, new):
-        self._b64value = base64.b64encode(new)
+
+    @observe('value')
+    def _value_changed(self, change):
+        self._b64value = base64.b64encode(change['new'])

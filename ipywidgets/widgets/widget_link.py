@@ -6,7 +6,7 @@ Propagate changes between widgets on the javascript side.
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from .widget import Widget, widget_serialization
+from .widget import Widget, register, widget_serialization
 from traitlets import Unicode, Tuple, List,Instance, TraitError
 
 
@@ -30,12 +30,16 @@ class WidgetTraitTuple(Tuple):
         return value
 
 
+@register('jupyter.Link')
 class Link(Widget):
     """Link Widget
 
     source: a (Widget, 'trait_name') tuple for the source trait
     target: a (Widget, 'trait_name') tuple that should be updated
     """
+
+    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
+    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
     _model_name = Unicode('LinkModel').tag(sync=True)
     target = WidgetTraitTuple().tag(sync=True, **widget_serialization)
     source = WidgetTraitTuple().tag(sync=True, **widget_serialization)
@@ -53,6 +57,9 @@ class Link(Widget):
 def jslink(attr1, attr2):
     """Link two widget attributes on the frontend so they remain in sync.
 
+    The link is created in the front-end and does not rely on a roundtrip
+    to the backend.
+
     Parameters
     ----------
     source : a (Widget, 'trait_name') tuple for the first trait
@@ -66,6 +73,7 @@ def jslink(attr1, attr2):
     return Link(attr1, attr2)
 
 
+@register('jupyter.DirectionalLink')
 class DirectionalLink(Link):
     """A directional link
 
@@ -77,8 +85,10 @@ class DirectionalLink(Link):
 
 
 def jsdlink(source, target):
-    """Link a source widget attribute with a target widget attribute on the
-    frontend.
+    """Link a source widget attribute with a target widget attribute.
+
+    The link is created in the front-end and does not rely on a roundtrip
+    to the backend.
 
     Parameters
     ----------
@@ -91,4 +101,3 @@ def jsdlink(source, target):
     >>> c = dlink((src_widget, 'value'), (tgt_widget, 'value'))
     """
     return DirectionalLink(source, target)
-
