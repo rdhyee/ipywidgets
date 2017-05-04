@@ -1,11 +1,12 @@
-"""Contains the Layout class"""
-
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from .widget import Widget, register
-from traitlets import Unicode
+"""Contains the Layout class"""
 
+from traitlets import Unicode, Instance, CaselessStrEnum
+from .widget import Widget
+
+CSS_PROPERTIES=['inherit', 'initial', 'unset']
 
 class Layout(Widget):
     """Layout specification
@@ -22,34 +23,49 @@ class Layout(Widget):
     - ``margin-[top/bottom/left/right]`` values are bound to ``margin``, etc.
     """
 
-    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
-    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
     _view_name = Unicode('LayoutView').tag(sync=True)
+    _view_module = Unicode('@jupyter-widgets/base')
+    _view_module_version = Unicode('3.0.0')
     _model_name = Unicode('LayoutModel').tag(sync=True)
 
     # Keys
-    align_content = Unicode().tag(sync=True)
-    align_items = Unicode().tag(sync=True)
-    align_self = Unicode().tag(sync=True)
-    bottom = Unicode().tag(sync=True)
-    border = Unicode().tag(sync=True)
-    display = Unicode().tag(sync=True)
-    flex = Unicode().tag(sync=True)
-    flex_flow = Unicode().tag(sync=True)
-    height = Unicode().tag(sync=True)
-    justify_content = Unicode().tag(sync=True)
-    left = Unicode().tag(sync=True)
-    margin = Unicode().tag(sync=True)
-    max_height = Unicode().tag(sync=True)
-    max_width = Unicode().tag(sync=True)
-    min_height = Unicode().tag(sync=True)
-    min_width = Unicode().tag(sync=True)
-    overflow = Unicode().tag(sync=True)
-    overflow_x = Unicode().tag(sync=True)
-    overflow_y = Unicode().tag(sync=True)
-    order = Unicode().tag(sync=True)
-    padding = Unicode().tag(sync=True)
-    right = Unicode().tag(sync=True)
-    top = Unicode().tag(sync=True)
-    visibility = Unicode().tag(sync=True)
-    width = Unicode().tag(sync=True)
+    align_content = CaselessStrEnum(['flex-start', 'flex-end', 'center', 'space-between',
+        'space-around', 'space-evenly', 'stretch'] + CSS_PROPERTIES, allow_none=True, help="The align-content CSS attribute.").tag(sync=True)
+    align_items = CaselessStrEnum(['flex-start', 'flex-end', 'center',
+        'baseline', 'stretch'] + CSS_PROPERTIES, allow_none=True, help="The align-items CSS attribute.").tag(sync=True)
+    align_self = CaselessStrEnum(['auto', 'flex-start', 'flex-end',
+        'center', 'baseline', 'stretch'] + CSS_PROPERTIES, allow_none=True, help="The align-self CSS attribute.").tag(sync=True)
+    bottom = Unicode(None, allow_none=True, help="The bottom CSS attribute.").tag(sync=True)
+    border = Unicode(None, allow_none=True, help="The border CSS attribute.").tag(sync=True)
+    display = Unicode(None, allow_none=True, help="The display CSS attribute.").tag(sync=True)
+    flex = Unicode(None, allow_none=True, help="The flex CSS attribute.").tag(sync=True)
+    flex_flow = Unicode(None, allow_none=True, help="The flex-flow CSS attribute.").tag(sync=True)
+    height = Unicode(None, allow_none=True, help="The height CSS attribute.").tag(sync=True)
+    justify_content = CaselessStrEnum(['flex-start', 'flex-end', 'center',
+        'space-between', 'space-around'] + CSS_PROPERTIES, allow_none=True, help="The justify-content CSS attribute.").tag(sync=True)
+    left = Unicode(None, allow_none=True, help="The left CSS attribute.").tag(sync=True)
+    margin = Unicode(None, allow_none=True, help="The margin CSS attribute.").tag(sync=True)
+    max_height = Unicode(None, allow_none=True, help="The max-height CSS attribute.").tag(sync=True)
+    max_width = Unicode(None, allow_none=True, help="The max-width CSS attribute.").tag(sync=True)
+    min_height = Unicode(None, allow_none=True, help="The min-height CSS attribute.").tag(sync=True)
+    min_width = Unicode(None, allow_none=True, help="The min-width CSS attribute.").tag(sync=True)
+    overflow = CaselessStrEnum(['visible', 'hidden', 'scroll', 'auto'] + CSS_PROPERTIES, allow_none=True, help="The overflow CSS attribute.").tag(sync=True)
+    overflow_x = CaselessStrEnum(['visible', 'hidden', 'scroll', 'auto'] + CSS_PROPERTIES, allow_none=True, help="The overflow-x CSS attribute.").tag(sync=True)
+    overflow_y = CaselessStrEnum(['visible', 'hidden', 'scroll', 'auto'] + CSS_PROPERTIES, allow_none=True, help="The overflow-y CSS attribute.").tag(sync=True)
+    order = Unicode(None, allow_none=True, help="The order CSS attribute.").tag(sync=True)
+    padding = Unicode(None, allow_none=True, help="The padding CSS attribute.").tag(sync=True)
+    right = Unicode(None, allow_none=True, help="The right CSS attribute.").tag(sync=True)
+    top = Unicode(None, allow_none=True, help="The top CSS attribute.").tag(sync=True)
+    visibility = CaselessStrEnum(['visible', 'hidden']+CSS_PROPERTIES, allow_none=True, help="The visibility CSS attribute.").tag(sync=True)
+    width = Unicode(None, allow_none=True, help="The width CSS attribute.").tag(sync=True)
+
+
+class LayoutTraitType(Instance):
+
+    klass = Layout
+
+    def validate(self, obj, value):
+        if isinstance(value, dict):
+            return super(LayoutTraitType, self).validate(obj, self.klass(**value))
+        else:
+            return super(LayoutTraitType, self).validate(obj, value)

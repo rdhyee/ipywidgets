@@ -1,20 +1,21 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
 """Bool class.
 
 Represents a boolean using a widget.
 """
 
-# Copyright (c) Jupyter Development Team.
-# Distributed under the terms of the Modified BSD License.
-
-from .domwidget import DOMWidget
+from .widget_description import DescriptionWidget
+from .widget_core import CoreWidget
+from .valuewidget import ValueWidget
 from .widget import register
 from traitlets import Unicode, Bool, CaselessStrEnum
 
 
-class _Bool(DOMWidget):
+class _Bool(DescriptionWidget, ValueWidget, CoreWidget):
     """A base class for creating widgets that represent booleans."""
     value = Bool(False, help="Bool value").tag(sync=True)
-    description = Unicode('', help="Description of the boolean (label).").tag(sync=True)
     disabled = Bool(False, help="Enable or disable user changes.").tag(sync=True)
 
     def __init__(self, value=None, **kwargs):
@@ -22,27 +23,28 @@ class _Bool(DOMWidget):
             kwargs['value'] = value
         super(_Bool, self).__init__(**kwargs)
 
-    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
-    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
     _model_name = Unicode('BoolModel').tag(sync=True)
 
 
-@register('Jupyter.Checkbox')
+@register
 class Checkbox(_Bool):
     """Displays a boolean `value` in the form of a checkbox.
 
     Parameters
     ----------
     value : {True,False}
-       value of the checkbox: True-checked, False-unchecked
+        value of the checkbox: True-checked, False-unchecked
     description : str
-	     description displayed next to the checkbox
+	    description displayed next to the checkbox
+    indent : {True,False}
+        indent the control to align with other controls with a description. The style.description_width attribute controls this width for consistence with other controls.
     """
     _view_name = Unicode('CheckboxView').tag(sync=True)
     _model_name = Unicode('CheckboxModel').tag(sync=True)
+    indent = Bool(True, help="Indent the control to align with other controls with a description.").tag(sync=True)
 
 
-@register('Jupyter.ToggleButton')
+@register
 class ToggleButton(_Bool):
     """Displays a boolean `value` in the form of a toggle button.
 
@@ -68,7 +70,7 @@ class ToggleButton(_Bool):
         help="""Use a predefined styling for the button.""").tag(sync=True)
 
 
-@register('Jupyter.Valid')
+@register
 class Valid(_Bool):
     """Displays a boolean `value` in the form of a green check (True / valid)
     or a red cross (False / invalid).

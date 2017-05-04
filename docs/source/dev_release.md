@@ -1,40 +1,64 @@
 Developer Release Procedure
 ===========================
 
-To release a new version of the widgets on PyPI and npm, first checkout
-master and cd into the repo root.  Make sure the version in `widget.py`  matches
-the JS frontend version.  Also check that the frontend version specified in
-`manager-base.js` (`version`) is correct.
+To release a new version of the widgets on PyPI and npm, first checkout master
+and cd into the repo root.  Make sure the version of `jupyter-widgets-controls` matches
+the semver range `__frontend_version__` specified in `ipywidgets/_version.py`.
 
-### Publish jupyter-js-widgets
+### Publish jupyter-widgets-controls
+
 ```
 # nuke the  `dist` and `node_modules`
 git clean -fdx
-edit manager-base.py to point "version" to next release of ipywidgets
 npm version [patch/minor/major]
 npm install
-npm publish
+npm publish --tag next
 ```
 
-### Prepare widgetsnbextension npm module
- - npm module
-```
-edit package.json to point to new jupyter-js-widgets version
+### widgetsnbextension
+
+Edit package.json to point to new jupyter-widgets-controls version
 npm version [patch/minor/major]
+
+Edit `widgetsnbextension/_version.py` (Remove dev from the version.  If it's the first beta, use b1, etc...)
+
+```
+python setup.py sdist
+python setup.py bdist_wheel --universal
+twine upload dist/*
 ```
 
-### Here we commit our changes to the two package.json files
- - python module
+### JupyterLab
+
+Edit the package.json to have jupyter-widgets-controls point to the correct version.
+
 ```
-edit widgetsnbextension/_version.py (Remove dev from the version.  If it's the first beta, use b1, etc...)
-python setup.py sdist upload && python setup.py bdist_wheel upload
+npm version patch/minor/major
+npm install
+npm run build
+npm publish
+python setup.py sdist
+python setup.py bdist_wheel --universal
+twine upload dist/*
+```
 
-edit ipywidgets/_version.py (remove dev from the version and update the frontend version requirement to match the one of jupyter-js-widgets)
+### ipywidgets
 
-Change install_requires to point to new widgetsnbextension version
-python setup.py sdist upload && python setup.py bdist_wheel upload
+edit ipywidgets/_version.py (remove dev from the version and update the frontend version requirement to match the one of `jupyter-widgets-controls`)
+
+Change `setup.py` `install_requires` parameter to point to new widgetsnbextension version
+
+```
+python setup.py sdist
+python setup.py bdist_wheel --universal
+twine upload dist/*
+```
+
+
+### Push changes back
+
 commit and tag (ipywidgets) release
-```
+
 
 ### Back to dev
 ```
@@ -48,5 +72,5 @@ git push [upstream] --tags
 ```
 
 On GitHub
-1. Go to https://github.com/ipython/ipywidgets/milestones and click "Close" for the released version.
+1. Go to https://github.com/jupyter-widgets/ipywidgets/milestones and click "Close" for the released version.
 2. Make sure patch, minor, and/or major milestones exist as appropriate.

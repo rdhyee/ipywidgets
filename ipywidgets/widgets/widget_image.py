@@ -1,20 +1,22 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
 """Image class.
 
 Represents an image in the frontend using a widget.
 """
 
-# Copyright (c) Jupyter Development Team.
-# Distributed under the terms of the Modified BSD License.
-
 import base64
 
+from .widget_core import CoreWidget
 from .domwidget import DOMWidget
+from .valuewidget import ValueWidget
 from .widget import register
 from traitlets import Unicode, CUnicode, Bytes, observe
 
 
-@register('Jupyter.Image')
-class Image(DOMWidget):
+@register
+class Image(DOMWidget, ValueWidget, CoreWidget):
     """Displays an image as a widget.
 
     The `value` of this widget accepts a byte string.  The byte string is the
@@ -24,16 +26,14 @@ class Image(DOMWidget):
     """
     _view_name = Unicode('ImageView').tag(sync=True)
     _model_name = Unicode('ImageModel').tag(sync=True)
-    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
-    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
 
     # Define the custom state properties to sync with the front-end
-    format = Unicode('png').tag(sync=True)
-    width = CUnicode().tag(sync=True)
-    height = CUnicode().tag(sync=True)
-    _b64value = Unicode().tag(sync=True)
+    format = Unicode('png', help="The format of the image.").tag(sync=True)
+    width = CUnicode(help="Width of the image in pixels.").tag(sync=True)
+    height = CUnicode(help="Height of the image in pixels.").tag(sync=True)
+    _b64value = Unicode(help="The base64 encoded image data.").tag(sync=True)
 
-    value = Bytes()
+    value = Bytes(help="The image data as a byte string.")
 
     @observe('value')
     def _value_changed(self, change):

@@ -6,20 +6,20 @@ Represents an unbounded float using a widget.
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from .domwidget import DOMWidget
-from .widget import register
-from .trait_types import Color
-from traitlets import (Unicode, CFloat, Bool, Int, CaselessStrEnum,
-                       Tuple, TraitError, validate)
+from traitlets import (
+    Instance, Unicode, CFloat, Bool, CaselessStrEnum, Tuple, TraitError, validate, default
+)
+from .widget_description import DescriptionWidget
+from .trait_types import InstanceDict
+from .valuewidget import ValueWidget
+from .widget import register, widget_serialization
+from .widget_core import CoreWidget
+from .widget_int import ProgressStyle, SliderStyle
 
 
-class _Float(DOMWidget):
+class _Float(DescriptionWidget, ValueWidget, CoreWidget):
     value = CFloat(0.0, help="Float value").tag(sync=True)
     disabled = Bool(False, help="Enable or disable user changes").tag(sync=True)
-    description = Unicode(help="Description of the value this widget represents").tag(sync=True)
-
-    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
-    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
 
     def __init__(self, value=None, **kwargs):
         if value is not None:
@@ -30,7 +30,6 @@ class _Float(DOMWidget):
 class _BoundedFloat(_Float):
     max = CFloat(100.0, help="Max value").tag(sync=True)
     min = CFloat(0.0, help="Min value").tag(sync=True)
-    step = CFloat(0.1, help="Minimum step to increment the value (ignored by some views)").tag(sync=True)
 
     @validate('value')
     def _validate_value(self, proposal):
@@ -61,7 +60,7 @@ class _BoundedFloat(_Float):
         return max
 
 
-@register('Jupyter.FloatText')
+@register
 class FloatText(_Float):
     """ Displays a float value within a textbox. For a textbox in
     which the value must be within a specific range, use BoundedFloatText.
@@ -72,14 +71,12 @@ class FloatText(_Float):
         value displayed
     description : str
         description displayed next to the text box
-    color : str Unicode color code (eg. '#C13535')
-        color of the value displayed
     """
     _view_name = Unicode('FloatTextView').tag(sync=True)
     _model_name = Unicode('FloatTextModel').tag(sync=True)
 
 
-@register('Jupyter.BoundedFloatText')
+@register
 class BoundedFloatText(_BoundedFloat):
     """ Displays a float value within a textbox. Value must be within the range specified.
 
@@ -95,14 +92,12 @@ class BoundedFloatText(_BoundedFloat):
         maximal value of the range of possible values displayed
     description : str
         description displayed next to the textbox
-    color : str Unicode color code (eg. '#C13535')
-        color of the value displayed
     """
     _view_name = Unicode('FloatTextView').tag(sync=True)
-    _model_name = Unicode('FloatTextModel').tag(sync=True)
+    _model_name = Unicode('BoundedFloatTextModel').tag(sync=True)
 
 
-@register('Jupyter.FloatSlider')
+@register
 class FloatSlider(_BoundedFloat):
     """ Slider/trackbar of floating values with the specified range.
 
@@ -126,23 +121,20 @@ class FloatSlider(_BoundedFloat):
         default is '.2f', specifier for the format function used to represent
         slider value for human consumption, modeled after Python 3's format
         specification mini-language (PEP 3101).
-    slider_color : str Unicode color code (eg. '#C13535')
-        color of the slider
-    color : str Unicode color code (eg. '#C13535')
-        color of the value displayed (if readout == True)
     """
     _view_name = Unicode('FloatSliderView').tag(sync=True)
     _model_name = Unicode('FloatSliderModel').tag(sync=True)
+    step = CFloat(0.1, help="Minimum step to increment the value").tag(sync=True)
     orientation = CaselessStrEnum(values=['horizontal', 'vertical'],
         default_value='horizontal', help="Vertical or horizontal.").tag(sync=True)
-    _range = Bool(False, help="Display a range selector").tag(sync=True)
     readout = Bool(True, help="Display the current value of the slider next to it.").tag(sync=True)
     readout_format = Unicode('.2f', help="Format for the readout").tag(sync=True)
-    slider_color = Color(None, allow_none=True).tag(sync=True)
     continuous_update = Bool(True, help="Update the value of the widget as the user is holding the slider.").tag(sync=True)
 
+    style = InstanceDict(SliderStyle).tag(sync=True, **widget_serialization)
 
-@register('Jupyter.FloatProgress')
+
+@register
 class FloatProgress(_BoundedFloat):
     """ Displays a progress bar.
 
@@ -165,14 +157,16 @@ class FloatProgress(_BoundedFloat):
         colors are: 'success'-green, 'info'-light blue, 'warning'-orange, 'danger'-red
     """
     _view_name = Unicode('ProgressView').tag(sync=True)
-    _model_name = Unicode('ProgressModel').tag(sync=True)
+    _model_name = Unicode('FloatProgressModel').tag(sync=True)
     orientation = CaselessStrEnum(values=['horizontal', 'vertical'],
         default_value='horizontal', help="Vertical or horizontal.").tag(sync=True)
 
     bar_style = CaselessStrEnum(
         values=['success', 'info', 'warning', 'danger', ''],
-        default_value='', allow_none=True, help="""Use a predefined styling for
-        the progess bar.""").tag(sync=True)
+        default_value='', allow_none=True,
+        help="Use a predefined styling for the progess bar.").tag(sync=True)
+
+    style = InstanceDict(ProgressStyle).tag(sync=True, **widget_serialization)
 
 
 class _FloatRange(_Float):
@@ -237,7 +231,7 @@ class _BoundedFloatRange(_FloatRange):
         return lower, upper
 
 
-@register('Jupyter.FloatRangeSlider')
+@register
 class FloatRangeSlider(_BoundedFloatRange):
     """ Slider/trackbar that represents a pair of floats bounded by minimum and maximum value.
 
@@ -261,16 +255,14 @@ class FloatRangeSlider(_BoundedFloatRange):
         default is '.2f', specifier for the format function used to represent
         slider value for human consumption, modeled after Python 3's format
         specification mini-language (PEP 3101).
-    slider_color : str Unicode color code (eg. '#C13535')
-        color of the slider
-    color : str Unicode color code (eg. '#C13535')
-        color of the value displayed (if readout == True)
     """
-    _view_name = Unicode('FloatSliderView').tag(sync=True)
-    _model_name = Unicode('FloatSliderModel').tag(sync=True)
+    _view_name = Unicode('FloatRangeSliderView').tag(sync=True)
+    _model_name = Unicode('FloatRangeSliderModel').tag(sync=True)
+    step = CFloat(0.1, help="Minimum step to increment the value").tag(sync=True)
     orientation = CaselessStrEnum(values=['horizontal', 'vertical'],
         default_value='horizontal', help="Vertical or horizontal.").tag(sync=True)
-    _range = Bool(True, help="Display a range selector").tag(sync=True)
     readout = Bool(True, help="Display the current value of the slider next to it.").tag(sync=True)
-    slider_color = Color(None, allow_none=True).tag(sync=True)
+    readout_format = Unicode('.2f', help="Format for the readout").tag(sync=True)
     continuous_update = Bool(True, help="Update the value of the widget as the user is sliding the slider.").tag(sync=True)
+
+    style = InstanceDict(SliderStyle).tag(sync=True, **widget_serialization)

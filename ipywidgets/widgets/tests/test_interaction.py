@@ -1,7 +1,7 @@
-"""Test interact and interactive."""
-
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
+
+"""Test interact and interactive."""
 
 from __future__ import print_function
 
@@ -10,53 +10,27 @@ try:
 except ImportError:
     from mock import patch
 
+import os
 import nose.tools as nt
+from collections import OrderedDict
 
-from ipykernel.comm import Comm
 import ipywidgets as widgets
 
 from traitlets import TraitError
-from ipywidgets import interact, interactive, Widget, interaction, Output
+from ipywidgets import (interact, interact_manual, interactive,
+    interaction, Output)
 from ipython_genutils.py3compat import annotate
 
 #-----------------------------------------------------------------------------
 # Utility stuff
 #-----------------------------------------------------------------------------
 
-class DummyComm(Comm):
-    comm_id = 'a-b-c-d'
-
-    def open(self, *args, **kwargs):
-        pass
-
-    def send(self, *args, **kwargs):
-        pass
-
-    def close(self, *args, **kwargs):
-        pass
-
-_widget_attrs = {}
-displayed = []
-undefined = object()
-
-def setup():
-    _widget_attrs['_comm_default'] = getattr(Widget, '_comm_default', undefined)
-    Widget._comm_default = lambda self: DummyComm()
-    _widget_attrs['_ipython_display_'] = Widget._ipython_display_
-    def raise_not_implemented(*args, **kwargs):
-        raise NotImplementedError()
-    Widget._ipython_display_ = raise_not_implemented
-
-def teardown():
-    for attr, value in _widget_attrs.items():
-        if value is undefined:
-            delattr(Widget, attr)
-        else:
-            setattr(Widget, attr, value)
+from .utils import setup, teardown
 
 def f(**kwargs):
     pass
 
+displayed = []
 def clear_display():
     global displayed
     displayed = []
@@ -78,6 +52,13 @@ def check_widget(w, **d):
             nt.assert_equal(value, expected,
                 "%s.%s = %r != %r" % (w.__class__.__name__, attr, value, expected)
             )
+            # For numeric values, the types should match too
+            if isinstance(value, (int, float)):
+                tv = type(value)
+                te = type(expected)
+                nt.assert_is(tv, te,
+                    "type(%s.%s) = %r != %r" % (w.__class__.__name__, attr, tv, te)
+                )
 
 def check_widgets(container, **to_check):
     """Check that widgets are created as expected"""
@@ -112,36 +93,40 @@ def test_single_value_bool():
             value=a,
         )
 
-def test_single_value_dict():
-    for d in [
-        dict(a=5),
-        dict(a=5, b='b', c=dict),
-    ]:
-        c = interactive(f, d=d)
-        w = c.children[0]
-        check_widget(w,
-            cls=widgets.Dropdown,
-            description='d',
-            options=d,
-            value=next(iter(d.values())),
-        )
-
 def test_single_value_float():
-    for a in (2.25, 1.0, -3.5):
+    for a in (2.25, 1.0, -3.5, 0.0):
+        if not a:
+            expected_min = 0.0
+            expected_max = 1.0
+        elif a > 0:
+            expected_min = -a
+            expected_max = 3*a
+        else:
+            expected_min = 3*a
+            expected_max = -a
         c = interactive(f, a=a)
         w = c.children[0]
         check_widget(w,
             cls=widgets.FloatSlider,
             description='a',
             value=a,
-            min= -a if a > 0 else 3*a,
-            max= 3*a if a > 0 else -a,
+            min=expected_min,
+            max=expected_max,
             step=0.1,
             readout=True,
         )
 
 def test_single_value_int():
-    for a in (1, 5, -3):
+    for a in (1, 5, -3, 0):
+        if not a:
+            expected_min = 0
+            expected_max = 1
+        elif a > 0:
+            expected_min = -a
+            expected_max = 3*a
+        else:
+            expected_min = 3*a
+            expected_max = -a
         c = interactive(f, a=a)
         nt.assert_equal(len(c.children), 2)
         w = c.children[0]
@@ -149,22 +134,52 @@ def test_single_value_int():
             cls=widgets.IntSlider,
             description='a',
             value=a,
-            min= -a if a > 0 else 3*a,
-            max= 3*a if a > 0 else -a,
+            min=expected_min,
+            max=expected_max,
             step=1,
             readout=True,
         )
 
-def test_list_tuple_str():
+def test_list_str():
     values = ['hello', 'there', 'guy']
     first = values[0]
-    c = interactive(f, lis=list(values))
+    c = interactive(f, lis=values)
     nt.assert_equal(len(c.children), 2)
     d = dict(
         cls=widgets.Dropdown,
         value=first,
-        options=values
+        _options_labels=tuple(values),
+        _options_values=tuple(values),
     )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
+    check_widgets(c, lis=d)
+
+def test_list_int():
+    values = [3, 1, 2]
+    first = values[0]
+    c = interactive(f, lis=values)
+    nt.assert_equal(len(c.children), 2)
+    d = dict(
+        cls=widgets.Dropdown,
+        value=first,
+        _options_labels=tuple(str(v) for v in values),
+        _options_values=tuple(values),
+    )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
+    check_widgets(c, lis=d)
+
+def test_list_tuple():
+    values = [(3, 300), (1, 100), (2, 200)]
+    first = values[0][1]
+    c = interactive(f, lis=values)
+    nt.assert_equal(len(c.children), 2)
+    d = dict(
+        cls=widgets.Dropdown,
+        value=first,
+        _options_labels=("3", "1", "2"),
+        _options_values=(300, 100, 200),
+    )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
     check_widgets(c, lis=d)
 
 def test_list_tuple_invalid():
@@ -174,6 +189,101 @@ def test_list_tuple_invalid():
         with nt.assert_raises(ValueError):
             print(bad) # because there is no custom message in assert_raises
             c = interactive(f, tup=bad)
+
+def test_dict():
+    for d in [
+        dict(a=5),
+        dict(a=5, b='b', c=dict),
+    ]:
+        c = interactive(f, d=d)
+        w = c.children[0]
+        check = dict(
+            cls=widgets.Dropdown,
+            description='d',
+            value=next(iter(d.values())),
+            _options_labels=tuple(d.keys()),
+            _options_values=tuple(d.values()),
+        )
+        check['options'] = tuple(zip(check['_options_labels'], check['_options_values']))
+        check_widget(w, **check)
+
+
+def test_ordereddict():
+    from collections import OrderedDict
+    items = [(3, 300), (1, 100), (2, 200)]
+    first = items[0][1]
+    values = OrderedDict(items)
+    c = interactive(f, lis=values)
+    nt.assert_equal(len(c.children), 2)
+    d = dict(
+        cls=widgets.Dropdown,
+        value=first,
+        options=values,
+        _options_labels=("3", "1", "2"),
+        _options_values=(300, 100, 200),
+    )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
+    check_widgets(c, lis=d)
+
+def test_iterable():
+    def yield_values():
+        yield 3
+        yield 1
+        yield 2
+    first = next(yield_values())
+    c = interactive(f, lis=yield_values())
+    nt.assert_equal(len(c.children), 2)
+    d = dict(
+        cls=widgets.Dropdown,
+        value=first,
+        _options_labels=("3", "1", "2"),
+        _options_values=(3, 1, 2),
+    )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
+    check_widgets(c, lis=d)
+
+def test_iterable_tuple():
+    values = [(3, 300), (1, 100), (2, 200)]
+    first = values[0][1]
+    c = interactive(f, lis=iter(values))
+    nt.assert_equal(len(c.children), 2)
+    d = dict(
+        cls=widgets.Dropdown,
+        value=first,
+        _options_labels=("3", "1", "2"),
+        _options_values=(300, 100, 200),
+    )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
+    check_widgets(c, lis=d)
+
+def test_mapping():
+    from collections import Mapping, OrderedDict
+    class TestMapping(Mapping):
+        def __init__(self, values):
+            self.values = values
+        def __getitem__(self):
+            raise NotImplementedError
+        def __len__(self):
+            raise NotImplementedError
+        def __iter__(self):
+            raise NotImplementedError
+        def items(self):
+            return self.values
+
+    items = [(3, 300), (1, 100), (2, 200)]
+    first = items[0][1]
+    values = TestMapping(items)
+    c = interactive(f, lis=values)
+    nt.assert_equal(len(c.children), 2)
+    d = dict(
+        cls=widgets.Dropdown,
+        value=first,
+        _options_labels=("3", "1", "2"),
+        _options_values=(300, 100, 200),
+    )
+    d['options'] = tuple(zip(d['_options_labels'], d['_options_values']))
+    check_widgets(c, lis=d)
+
 
 def test_defaults():
     @annotate(n=10)
@@ -197,7 +307,7 @@ def test_defaults():
     )
 
 def test_default_values():
-    @annotate(n=10, f=(0, 10.), g=5, h={'a': 1, 'b': 2}, j=['hi', 'there'])
+    @annotate(n=10, f=(0, 10.), g=5, h=OrderedDict([('a',1), ('b',2)]), j=['hi', 'there'])
     def f(n, f=4.5, g=1, h=2, j='there'):
         pass
 
@@ -217,12 +327,12 @@ def test_default_values():
         ),
         h=dict(
             cls=widgets.Dropdown,
-            options={'a': 1, 'b': 2},
+            options=(('a', 1), ('b', 2)),
             value=2
         ),
         j=dict(
             cls=widgets.Dropdown,
-            options=['hi', 'there'],
+            options=(('hi', 'hi'), ('there', 'there')),
             value='there'
         ),
     )
@@ -240,12 +350,12 @@ def test_default_out_of_bounds():
         ),
         h=dict(
             cls=widgets.Dropdown,
-            options={'a': 1},
+            options=(('a', 1),),
             value=1,
         ),
         j=dict(
             cls=widgets.Dropdown,
-            options=['hi', 'there'],
+            options=(('hi', 'hi'), ('there', 'there')),
             value='hi',
         ),
     )
@@ -460,7 +570,7 @@ def test_custom_description():
     nt.assert_equal(d, {'b': 'different text'})
 
 def test_interact_manual_button():
-    c = interactive(f, __manual=True)
+    c = interact.options(manual=True).widget(f)
     w = c.children[0]
     check_widget(w, cls=widgets.Button)
 
@@ -468,9 +578,32 @@ def test_interact_manual_nocall():
     callcount = 0
     def calltest(testarg):
         callcount += 1
-    c = interactive(calltest, testarg=5, __manual=True)
+    c = interact.options(manual=True)(calltest, testarg=5).widget
     c.children[0].value = 10
     nt.assert_equal(callcount, 0)
+
+def test_interact_call():
+    w = interact.widget(f)
+    w.update()
+
+    w = interact_manual.widget(f)
+    w.update()
+
+def test_interact_options():
+    def f(x):
+        return x
+    w = interact.options(manual=False).options(manual=True)(f, x=21).widget
+    nt.assert_equal(w.manual, True)
+
+    w = interact_manual.options(manual=False).options()(x=21).widget(f)
+    nt.assert_equal(w.manual, False)
+
+    w = interact(x=21)().options(manual=True)(f).widget
+    nt.assert_equal(w.manual, True)
+
+def test_interact_options_bad():
+    with nt.assert_raises(ValueError):
+        interact.options(bad="foo")
 
 def test_int_range_logic():
     irsw = widgets.IntRangeSlider
@@ -529,7 +662,7 @@ def test_float_range_logic():
         w.max = -.1
 
     w = frsw(min=2, max=3, value=(2.2, 2.5))
-    check_widget(w, min=2, max=3)
+    check_widget(w, min=2., max=3.)
 
     with nt.assert_raises(TraitError):
         frsw(min=.2, max=.1)
@@ -549,29 +682,29 @@ def test_multiple_selection():
 
     # basic multiple select
     w = smw(options=[(1, 1)], value=[1])
-    check_widget(w, cls=smw, value=(1,), options=[(1, 1)])
+    check_widget(w, cls=smw, value=(1,), options=(('1', 1),))
 
     # don't accept random other value
     with nt.assert_raises(TraitError):
         w.value = w.value + (2,)
     check_widget(w, value=(1,))
 
-    # change options
-    w.options = w.options + [(2, 2)]
-    check_widget(w, options=[(1, 1), (2,2)])
+    # change options, which resets value
+    w.options = w.options + ((2, 2),)
+    check_widget(w, options=(('1', 1), ('2',2)), value=())
 
     # change value
-    w.value = w.value + (2,)
+    w.value = (1,2)
     check_widget(w, value=(1, 2))
 
     # dict style
     w.options = {1: 1}
-    check_widget(w, options={1: 1})
+    check_widget(w, options=(('1', 1),))
 
     # updating
     with nt.assert_raises(TraitError):
         w.value = (2,)
-    check_widget(w, options={1: 1})
+    check_widget(w, options=(('1', 1),))
 
 
 def test_interact_noinspect():
@@ -583,3 +716,28 @@ def test_interact_noinspect():
         description='a',
         value=a,
     )
+
+
+def test_get_interact_value():
+    from ipywidgets.widgets import ValueWidget
+    from traitlets import Unicode
+    class TheAnswer(ValueWidget):
+        _model_name = Unicode('TheAnswer')
+        description = Unicode()
+        def get_interact_value(self):
+            return 42
+    w = TheAnswer()
+    c = interactive(lambda v: v, v=w)
+    c.update()
+    nt.assert_equal(c.result, 42)
+
+def test_state_schema():
+    from ipywidgets.widgets import IntSlider, Widget
+    import json
+    import jsonschema
+    s = IntSlider()
+    state = Widget.get_manager_state(drop_defaults=True)
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../', 'state.schema.json')) as f:
+        schema = json.load(f)
+    jsonschema.validate(state, schema)
+

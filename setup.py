@@ -73,7 +73,9 @@ setup_args = dict(
     version         = version_ns['__version__'],
     scripts         = [],
     packages        = packages,
-    package_data    = {},
+    package_data    = {
+        'ipywidgets': [ 'state.schema.json', 'view.schema.json' ]
+    },
     description     = "IPython HTML widgets for Jupyter",
     long_description = LONG_DESCRIPTION,
     author          = 'IPython Development Team',
@@ -93,6 +95,7 @@ setup_args = dict(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Framework :: Jupyter'
     ],
     cmdclass        = {
         'build_py': build_py,
@@ -105,17 +108,21 @@ if 'develop' in sys.argv or any(a.startswith('bdist') for a in sys.argv):
 
 setuptools_args = {}
 install_requires = setuptools_args['install_requires'] = [
-    'ipython>=4.0.0',
-    'ipykernel>=4.2.2',
-    'traitlets>=4.2.1',
+    'ipykernel>=4.5.1',
+    'traitlets>=4.3.1',
+    # Requiring nbformat to specify bugfix version which is not required by
+    # notebook.
+    'nbformat>=4.2.0',
     # TODO: Dynamically add this dependency
     # only if notebook 4.x is installed in this
     # interpreter, to allow ipywidgets to be
     # installed on bare kernels.
-    'widgetsnbextension>=1.1.0',
+    'widgetsnbextension~=3.0.0a9',
 ]
 
 extras_require = setuptools_args['extras_require'] = {
+    ':python_version<"3.3"' : ['ipython>=4.0.0,<6.0.0'],
+    ':python_version>="3.3"': ['ipython>=4.0.0'],
     'test:python_version=="2.7"': ['mock'],
     'test': ['nose'],
 }

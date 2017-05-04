@@ -1,1 +1,3 @@
-pip install -f travis-wheels/wheelhouse file://$PWD#egg=ipywidgets[test] coveralls
+set -ex
+
+pip install file://$PWD#egg=ipywidgets[test] coveralls

@@ -1,20 +1,24 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
 """Link and DirectionalLink classes.
 
 Propagate changes between widgets on the javascript side.
 """
 
-# Copyright (c) Jupyter Development Team.
-# Distributed under the terms of the Modified BSD License.
-
 from .widget import Widget, register, widget_serialization
+from .widget_core import CoreWidget
+
 from traitlets import Unicode, Tuple, List,Instance, TraitError
 
 
 class WidgetTraitTuple(Tuple):
     """Traitlet for validating a single (Widget, 'trait_name') pair"""
 
+    info_text = "A (Widget, 'trait_name') pair"
+
     def __init__(self, **kwargs):
-        super(WidgetTraitTuple, self).__init__(Instance(Widget), Unicode, **kwargs)
+        super(WidgetTraitTuple, self).__init__(Instance(Widget), Unicode(), **kwargs)
 
     def validate_elements(self, obj, value):
         value = super(WidgetTraitTuple, self).validate_elements(obj, value)
@@ -30,19 +34,17 @@ class WidgetTraitTuple(Tuple):
         return value
 
 
-@register('jupyter.Link')
-class Link(Widget):
+@register
+class Link(CoreWidget):
     """Link Widget
 
     source: a (Widget, 'trait_name') tuple for the source trait
     target: a (Widget, 'trait_name') tuple that should be updated
     """
 
-    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
-    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
     _model_name = Unicode('LinkModel').tag(sync=True)
-    target = WidgetTraitTuple().tag(sync=True, **widget_serialization)
-    source = WidgetTraitTuple().tag(sync=True, **widget_serialization)
+    target = WidgetTraitTuple(help="The target (widget, 'trait_name') pair").tag(sync=True, **widget_serialization)
+    source = WidgetTraitTuple(help="The source (widget, 'trait_name') pair").tag(sync=True, **widget_serialization)
 
     def __init__(self, source, target, **kwargs):
         kwargs['source'] = source
@@ -73,7 +75,7 @@ def jslink(attr1, attr2):
     return Link(attr1, attr2)
 
 
-@register('jupyter.DirectionalLink')
+@register
 class DirectionalLink(Link):
     """A directional link
 

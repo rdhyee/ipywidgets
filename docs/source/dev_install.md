@@ -18,14 +18,14 @@ To install ipywidgets from git, you will need:
   + If you want to have a copy of ipywidgets that works against a stable
     version of the notebook, checkout the appropriate tag.
   + See the
-    [Compatibility table](https://github.com/ipython/ipywidgets#compatibility).
+    [Compatibility table](https://github.com/jupyter-widgets/ipywidgets#compatibility).
 
 Steps
 -----
 
 0. Clone the repo:
 
-        git clone https://github.com/ipython/ipywidgets
+        git clone https://github.com/jupyter-widgets/ipywidgets
 
 1. Navigate into the cloned repo and install:
 
@@ -35,7 +35,7 @@ Steps
 Rebuild after making changes
 ----------------------------
 
-After you've made changes to `jupyter-js-widgets` if you want to test those
+After you've made changes to `jupyter-widgets-controls` if you want to test those
 changes, run the following commands, empty your browser's cache, and refresh
 the page:
 
@@ -70,3 +70,18 @@ permissions on npm and pip related install directories are correct.
         the `conda` directory
 
     - Try reinstalling ipywidgets
+    
+Releasing new versions
+----------------------
+
+See [dev_release.md](dev_release.md) for a details on how to release new versions of ipywidgets to PyPI and jupyter-widgets-controls on npm. 
+
+Testing
+-------
+
+See [dev_testing.md](dev_testing.md) for a details on how to run Python and Javascript tests. 
+
+Building documentation
+----------------------
+
+See [dev_docs.md](dev_docs.md) for a details on how to build the docs. 

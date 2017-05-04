@@ -1,27 +1,30 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
 """String class.
 
 Represents a unicode string using a widget.
 """
 
-# Copyright (c) Jupyter Development Team.
-# Distributed under the terms of the Modified BSD License.
-
-from .domwidget import DOMWidget
+from .widget_description import DescriptionWidget
+from .valuewidget import ValueWidget
 from .widget import CallbackDispatcher, register
-from traitlets import Unicode, Bool
+from .widget_core import CoreWidget
+from traitlets import Unicode, Bool, Int
 from warnings import warn
 
 
-class _String(DOMWidget):
+class _String(DescriptionWidget, ValueWidget, CoreWidget):
     """Base class used to create widgets that represent a string."""
-
-    _model_module = Unicode('jupyter-js-widgets').tag(sync=True)
-    _view_module = Unicode('jupyter-js-widgets').tag(sync=True)
 
     value = Unicode(help="String value").tag(sync=True)
     disabled = Bool(False, help="Enable or disable user changes").tag(sync=True)
-    description = Unicode(help="Description of the value this widget represents").tag(sync=True)
-    placeholder = Unicode("", help="Placeholder text to display when nothing has been typed").tag(sync=True)
+
+    # We set a zero-width space as a default placeholder to make sure the baseline matches
+    # the text, not the bottom margin. See the last paragraph of
+    # https://www.w3.org/TR/CSS2/visudet.html#leading
+    placeholder = Unicode(u'\u200b', help="Placeholder text to display when nothing has been typed").tag(sync=True)
+
 
     def __init__(self, value=None, **kwargs):
         if value is not None:
@@ -31,14 +34,20 @@ class _String(DOMWidget):
     _model_name = Unicode('StringModel').tag(sync=True)
 
 
-@register('Jupyter.HTML')
+@register
 class HTML(_String):
     """Renders the string `value` as HTML."""
     _view_name = Unicode('HTMLView').tag(sync=True)
     _model_name = Unicode('HTMLModel').tag(sync=True)
 
+@register
+class HTMLMath(_String):
+    """Renders the string `value` as HTML, and render mathematics."""
+    _view_name = Unicode('HTMLMathView').tag(sync=True)
+    _model_name = Unicode('HTMLMathModel').tag(sync=True)
 
-@register('Jupyter.Label')
+
+@register
 class Label(_String):
     """Label widget.
 
@@ -49,17 +58,18 @@ class Label(_String):
     _model_name = Unicode('LabelModel').tag(sync=True)
 
 
-@register('Jupyter.Textarea')
+@register
 class Textarea(_String):
     """Multiline text area widget."""
     _view_name = Unicode('TextareaView').tag(sync=True)
     _model_name = Unicode('TextareaModel').tag(sync=True)
+    rows = Int(None, allow_none=True, help="The number of rows to display.").tag(sync=True)
 
     def scroll_to_bottom(self):
         self.send({"method": "scroll_to_bottom"})
 
 
-@register('Jupyter.Text')
+@register
 class Text(_String):
     """Single line textbox widget."""
     _view_name = Unicode('TextView').tag(sync=True)
@@ -94,3 +104,17 @@ class Text(_String):
             Whether to unregister the callback
         """
         self._submission_callbacks.register_callback(callback, remove=remove)
+
+
+@register
+class Password(Text):
+    """Single line textbox widget."""
+    _view_name = Unicode('PasswordView').tag(sync=True)
+    _model_name = Unicode('PasswordModel').tag(sync=True)
+
+    def _repr_keys(self):
+        # Don't include password value in repr!
+        super_keys = super(Password, self)._repr_keys()
+        for key in super_keys:
+            if key != 'value':
+                yield key

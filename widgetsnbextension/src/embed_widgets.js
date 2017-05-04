@@ -3,19 +3,47 @@
 
 "use strict";
 
+var VIEW_MIME_TYPE = "application/vnd.jupyter.widget-view+json"
+
 var embed_widgets = function() {
     return new Promise(function(resolve) {
-        requirejs(['base/js/namespace', 'base/js/dialog', 'jupyter-js-widgets'], function(Jupyter, dialog, widgets) {
+        requirejs(['base/js/namespace', 'base/js/dialog', '@jupyter-widgets/controls'], function(Jupyter, dialog, widgets) {
 
             Jupyter.WidgetManager._managers[0].get_state({
                 'drop_defaults': true
             }).then(function(state) {
                 var data = JSON.stringify(state, null, '    ');
-                var value = '<script src="https://npmcdn.com/jupyter-js-widgets@~' + widgets.version + '/dist/embed.js"></script><script type="application/vnd.jupyter-embedded-widgets">' + data + '</script>';
-                var content = $('<textarea/>')
-                    .attr('readonly', true)
-                    .css({'width': '100%', 'min-height': '250px'})
-                    .val(value);
+                // TODO: This always points to the latest version of
+                // the html-manager.
+                // A better strategy would be to point to a version
+                // of the html-manager that has been tested with this
+                // release of jupyter-widgets/controls.
+                var value = '<script src="https://unpkg.com/@jupyter-widgets/html-manager@*/dist/index.js"></script>\n' +
+                            '<script type="application/vnd.jupyter.widget-state+json">\n' + data + '\n</script>';
+
+                var views = [];
+                var cells = Jupyter.notebook.get_cells();
+                Jupyter.notebook.get_cells().forEach(function(cell) {
+                    if (cell.output_area) {
+                        cell.output_area.outputs.forEach(function (output) {
+                            if (output.data
+                                && output.data[VIEW_MIME_TYPE]
+                                && state.state[output.data[VIEW_MIME_TYPE].model_id]) {
+                                views.push(('\n<script type="'+VIEW_MIME_TYPE+'">\n'
+                                    + JSON.stringify(output.data[VIEW_MIME_TYPE], null, '    ')
+                                    + '\n</script>'));
+                            }
+                        });
+                    }
+                })
+                value += views.join('\n');
+
+                var content = document.createElement('textarea');
+                content.setAttribute('readonly', 'true');
+                content.style.width = '100%';
+                content.style.minHeight = '250px';
+                content.value = value;
+
                 var mod = dialog.modal({
                     show: true,
                     title: 'Embed widgets',
@@ -30,7 +58,7 @@ var embed_widgets = function() {
                                 return document.execCommand('copy');
                             }
                         }
-                    },
+                    }
                 });
             });
         });
